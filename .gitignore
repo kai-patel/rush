@@ -1,0 +1,6 @@
+build
+test
+test_package/*
+!test_package/conanfile.py
+CMakeUserPresets.json
+compile_commands.json
