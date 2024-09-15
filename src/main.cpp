@@ -55,71 +55,62 @@ using value = std::variant<integer, string, list, dictionary>;
 struct list : std::vector<value> {};
 struct dictionary : std::unordered_map<string, value> {};
 
-std::string dictionary_to_string(const dictionary& input);
+struct ValuePrinter {
+    std::string operator()(integer i) { return std::to_string(i); }
 
-std::string list_to_string(const list& input) {
-    auto result = std::stringstream{};
-    result << '[';
+    std::string operator()(string s) { return s; }
 
-    std::size_t i = 0;
-    const auto last_index = input.size() - 1;
+    std::string operator()(list l) {
+        auto result = std::stringstream{};
+        result << '[';
 
-    for (const auto& element : input) {
-        if (std::holds_alternative<integer>(element)) {
-            result << std::get<integer>(element);
-        } else if (std::holds_alternative<string>(element)) {
-            result << std::get<string>(element);
-        } else if (std::holds_alternative<list>(element)) {
-            result << list_to_string(std::get<list>(element));
-        } else if (std::holds_alternative<dictionary>(element)) {
-            result << dictionary_to_string(std::get<dictionary>(element));
+        std::size_t i = 0;
+        const auto last_index = l.size() - 1;
+
+        for (const auto& element : l) {
+            const auto printed_element = std::visit(ValuePrinter{}, element);
+            result << printed_element;
+            if (i < last_index) {
+                result << ", ";
+            }
+            i++;
         }
 
-        if (i < last_index) {
-            result << ", ";
-        }
-        i++;
+        result << ']';
+        return result.str();
     }
 
-    result << ']';
-    return result.str();
-}
+    std::string operator()(dictionary d) {
+        auto result = std::stringstream{};
+        result << '{';
 
-std::string dictionary_to_string(const dictionary& input) {
-    auto result = std::stringstream{};
-    result << '{';
+        std::size_t i = 0;
+        const auto last_index = d.size() - 1;
 
-    std::size_t i = 0;
-    const auto last_index = input.size() - 1;
-
-    for (const auto& [key, element] : input) {
-        result << key << ": ";
-        if (std::holds_alternative<integer>(element)) {
-            result << std::get<integer>(element);
-        } else if (std::holds_alternative<string>(element)) {
-            result << std::get<string>(element);
-        } else if (std::holds_alternative<list>(element)) {
-            result << list_to_string(std::get<list>(element));
-        } else if (std::holds_alternative<dictionary>(element)) {
-            result << dictionary_to_string(std::get<dictionary>(element));
+        for (const auto& [key, element] : d) {
+            const auto printed_element = std::visit(ValuePrinter{}, element);
+            result << key << ": " << printed_element;
+            if (i < last_index) {
+                result << ", ";
+            }
+            i++;
         }
 
-        if (i < last_index) {
-            result << ", ";
-        }
-        i++;
+        result << '}';
+        return result.str();
     }
+};
 
-    result << '}';
-    return result.str();
+auto format_as(value v) {
+    return std::visit(ValuePrinter{}, v);
 }
 
 auto format_as(list l) {
-    return list_to_string(l);
+    return ValuePrinter{}(l);
 }
 
 auto format_as(dictionary d) {
-    return dictionary_to_string(d);
+    return ValuePrinter{}(d);
 }
 
 namespace grammar {
