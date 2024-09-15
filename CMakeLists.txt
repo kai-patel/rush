@@ -11,18 +11,31 @@ find_package(Boost)
 find_package(lexy)
 find_package(fmt)
 
+add_library(
+    parsing
+    STATIC
+    src/parser.cpp
+)
+
+target_link_libraries(
+    parsing
+    PUBLIC
+    fmt::fmt
+    PRIVATE
+    foonathan::lexy
+)
+
 add_executable(
     rush
     src/rush.cpp
     src/main.cpp
-    src/parser.cpp
 )
 
 target_link_libraries(
     rush
     PRIVATE
+    parsing
     Boost::boost
-    foonathan::lexy
     fmt::fmt
 )
 
