@@ -45,3 +45,4 @@ class rushRecipe(ConanFile):
         self.requires("boost/[>=1.86 <1.87]")
         self.requires("foonathan-lexy/2022.12.1")
         self.requires("fmt/11.0.2")
+        self.requires("gtest/1.15.0")

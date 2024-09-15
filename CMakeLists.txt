@@ -12,6 +12,7 @@ find_package(lexy REQUIRED)
 find_package(fmt REQUIRED)
 
 add_subdirectory(src)
+add_subdirectory(tests)
 
 install(
     TARGETS rush
