@@ -2,10 +2,10 @@
 
 #include <variant>
 
-#include "parser.h"
+#include "bencode.h"
 
-TEST(Parsing, PositiveInteger) {
-    const auto result = bencode::parse("i1234e");
+TEST(BencodeParsing, PositiveInteger) {
+    const auto result = bencode::parse_literal("i1234e");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);
@@ -19,8 +19,8 @@ TEST(Parsing, PositiveInteger) {
     EXPECT_EQ(actual, expected);
 }
 
-TEST(Parsing, NegativeInteger) {
-    const auto result = bencode::parse("i-1234e");
+TEST(BencodeParsing, NegativeInteger) {
+    const auto result = bencode::parse_literal("i-1234e");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);
@@ -34,15 +34,15 @@ TEST(Parsing, NegativeInteger) {
     EXPECT_EQ(actual, expected);
 }
 
-TEST(Parsing, NonBencodeInput) {
-    const auto result = bencode::parse("random_text");
+TEST(BencodeParsing, NonBencodeInput) {
+    const auto result = bencode::parse_literal("random_text");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, false);
 }
 
-TEST(Parsing, String) {
-    const auto result = bencode::parse("5:abcde");
+TEST(BencodeParsing, String) {
+    const auto result = bencode::parse_literal("5:abcde");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);
@@ -56,8 +56,8 @@ TEST(Parsing, String) {
     EXPECT_EQ(actual, expected);
 }
 
-TEST(Parsing, List) {
-    const auto result = bencode::parse("li123e3:fooe");
+TEST(BencodeParsing, List) {
+    const auto result = bencode::parse_literal("li123e3:fooe");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);
@@ -73,8 +73,8 @@ TEST(Parsing, List) {
     EXPECT_EQ(actual, expected);
 }
 
-TEST(Parsing, NestedList) {
-    const auto result = bencode::parse("li123e3:fooli456e3:baree");
+TEST(BencodeParsing, NestedList) {
+    const auto result = bencode::parse_literal("li123e3:fooli456e3:baree");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);
@@ -96,8 +96,8 @@ TEST(Parsing, NestedList) {
     EXPECT_EQ(actual, expected);
 }
 
-TEST(Parsing, Dictionary) {
-    const auto result = bencode::parse("d3:fooi123ee");
+TEST(BencodeParsing, Dictionary) {
+    const auto result = bencode::parse_literal("d3:fooi123ee");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);
@@ -113,8 +113,8 @@ TEST(Parsing, Dictionary) {
     EXPECT_EQ(actual, expected);
 }
 
-TEST(Parsing, NestedDictionary) {
-    const auto result = bencode::parse("d3:fooi123e3:bard3:bazi456eee");
+TEST(BencodeParsing, NestedDictionary) {
+    const auto result = bencode::parse_literal("d3:fooi123e3:bard3:bazi456eee");
 
     const auto is_successful = result.has_value();
     EXPECT_EQ(is_successful, true);

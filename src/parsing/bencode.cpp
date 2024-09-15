@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "bencode.h"
 
 #include <fmt/base.h>
 
@@ -25,6 +25,7 @@
 #include <lexy/error.hpp>
 #include <lexy/grammar.hpp>
 #include <lexy/input/buffer.hpp>
+#include <lexy/input/file.hpp>
 #include <lexy/input/string_input.hpp>
 #include <lexy_ext/report_error.hpp>
 #include <ranges>
@@ -92,7 +93,7 @@ std::string value_printer::operator()(dictionary d) {
 }
 
 template <typename Production>
-std::optional<bencode::value> parse(std::string_view input) {
+std::optional<bencode::value> parse_literal(std::string_view input) {
     const auto literal = lexy::zstring_input<lexy::byte_encoding>(input.data());
     const auto result =
         lexy::parse<Production>(literal, lexy_ext::report_error);
@@ -216,7 +217,27 @@ struct bencode_value {
 };
 }  // namespace grammar
 
-std::optional<bencode::value> parse(std::string_view input) {
-    return parse<bencode::grammar::bencode_value>(input);
+std::optional<bencode::value> parse_literal(std::string_view input) {
+    return parse_literal<bencode::grammar::bencode_value>(input);
 }
+
+std::optional<bencode::value> parse(const std::filesystem::path& input) {
+    const auto file = lexy::read_file<lexy::byte_encoding>(input.c_str());
+    if (!file) {
+        fmt::println("Could not open file: {} - error {}",
+                     std::filesystem::absolute(input).string(),
+                     static_cast<int>(file.error()));
+        return {};
+    }
+
+    const auto result = lexy::parse<bencode::grammar::bencode_value>(
+        file.buffer(), lexy_ext::report_error);
+
+    if (result.has_value()) {
+        const auto value = result.value();
+        return bencode::value{value};
+    }
+    return {};
+}
+
 }  // namespace bencode

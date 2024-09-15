@@ -1,19 +1,18 @@
 add_library(
-    parsing
+    torrent
     STATIC
-    bencode.cpp
+    torrent.cpp
 )
 
 target_link_libraries(
-    parsing
-    PUBLIC
-    fmt::fmt
+    torrent
     PRIVATE
-    foonathan::lexy
+    parsing
+    fmt::fmt
 )
 
 target_include_directories(
-    parsing
+    torrent
     PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
