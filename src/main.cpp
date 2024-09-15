@@ -12,9 +12,11 @@
 #include <lexy/callback/object.hpp>
 #include <lexy/dsl.hpp>
 #include <lexy/dsl/any.hpp>
+#include <lexy/dsl/branch.hpp>
 #include <lexy/dsl/byte.hpp>
 #include <lexy/dsl/context_counter.hpp>
 #include <lexy/dsl/eof.hpp>
+#include <lexy/dsl/if.hpp>
 #include <lexy/dsl/parse_as.hpp>
 #include <lexy/dsl/scan.hpp>
 #include <lexy/dsl/sign.hpp>
@@ -41,7 +43,6 @@ struct visitor : Ts... {
 template <class... Ts>
 visitor(Ts...) -> visitor<Ts...>;
 
-namespace {
 namespace bencode {
 
 using integer = std::int64_t;
@@ -141,6 +142,10 @@ struct byte_string
         scanner.parse(length, lexy::dsl::integer<std::size_t>);
         scanner.parse(lexy::dsl::lit_c<':'>);
 
+        if (!scanner) {
+            return lexy::scan_failed;
+        }
+
         const auto n = length.value();
         auto start = scanner.position();
         for (int i = 0; i < n; i++) {
@@ -150,6 +155,9 @@ struct byte_string
                 lexy::error<Reader, void>(scanner.position(), "e");
             }
             scanner.parse(lexy::dsl::byte);
+            if (!scanner) {
+                return lexy::scan_failed;
+            }
         }
 
         if (!scanner) {
@@ -169,27 +177,24 @@ struct byte_string
 };
 
 struct list {
-    static constexpr auto max_recusion_level = 0;
-
     static constexpr auto rule = [] {
         auto open = lexy::dsl::lit_c<'l'>;
         auto bencode_integer = lexy::dsl::p<integer>;
         auto bencode_string = lexy::dsl::p<byte_string>;
-        auto bencode_list = lexy::dsl::recurse<list>;
+        auto bencode_list = lexy::dsl::recurse_branch<list>;
         auto close = lexy::dsl::lit_c<'e'>;
-        return open >>
-               (bencode_integer >> bencode_string >> bencode_list) +
-                   close;  // FIXME: ">>" means this -> then, need to replace it
+        auto content_integer =
+            lexy::dsl::peek(bencode_integer) >> bencode_integer;
+        auto content_string = lexy::dsl::peek(bencode_string) >> bencode_string;
+        auto content_list = lexy::dsl::peek(open) >> bencode_list;
+
+        auto content =
+            lexy::dsl::list(content_integer | content_string | content_list);
+
+        return open >> content + close;
     }();
 
-    static constexpr auto value = lexy::callback<bencode::list>(
-        [](bencode::integer a, bencode::string b, bencode::list c) {
-            auto result = bencode::list{};
-            result.push_back(a);
-            result.push_back(b);
-            result.push_back(c);
-            return result;
-        });
+    static constexpr auto value = lexy::as_list<bencode::list>;
 };
 
 struct dictionary {
@@ -203,7 +208,6 @@ struct dictionary {
 };
 }  // namespace grammar
 }  // namespace bencode
-}  // namespace
 
 template <typename Production>
 void test_parse(std::string_view input) {
@@ -221,7 +225,7 @@ void test_parse(std::string_view input) {
 int main() {
     test_parse<bencode::grammar::integer>("i-1234e");
     test_parse<bencode::grammar::byte_string>("5:a cde");
-    test_parse<bencode::grammar::list>("li-1234e5:abcdee");
+    test_parse<bencode::grammar::list>("li-1234e5:abcdel3:fooee");
 
     return 0;
 }
