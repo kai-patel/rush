@@ -203,8 +203,22 @@ struct dictionary {
         auto close = lexy::dsl::lit_c<'e'>;
         auto bencode_integer = lexy::dsl::p<integer>;
         auto bencode_string = lexy::dsl::p<byte_string>;
-        return open >> (bencode_integer >> bencode_string) + close;
-    };
+        auto bencode_list = lexy::dsl::p<list>;
+        auto bencode_dict = lexy::dsl::recurse_branch<dictionary>;
+        auto content_integer =
+            lexy::dsl::peek(bencode_integer) >> bencode_integer;
+        auto content_string = lexy::dsl::peek(bencode_string) >> bencode_string;
+        auto content_list = lexy::dsl::peek(bencode_list) >> bencode_list;
+        auto content_dict = lexy::dsl::peek(open) >> bencode_dict;
+
+        auto content =
+            lexy::dsl::list(content_string + (content_integer | content_string |
+                                              content_list | content_dict));
+
+        return open >> content + close;
+    }();
+
+    static constexpr auto value = lexy::as_collection<bencode::dictionary>;
 };
 }  // namespace grammar
 }  // namespace bencode
@@ -226,6 +240,7 @@ int main() {
     test_parse<bencode::grammar::integer>("i-1234e");
     test_parse<bencode::grammar::byte_string>("5:a cde");
     test_parse<bencode::grammar::list>("li-1234e5:abcdel3:fooee");
+    test_parse<bencode::grammar::dictionary>("d3:food5:abcdei-42eee");
 
     return 0;
 }
