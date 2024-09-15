@@ -95,3 +95,42 @@ TEST(Parsing, NestedList) {
 
     EXPECT_EQ(actual, expected);
 }
+
+TEST(Parsing, Dictionary) {
+    const auto result = bencode::parse("d3:fooi123ee");
+
+    const auto is_successful = result.has_value();
+    EXPECT_EQ(is_successful, true);
+
+    const auto is_dictionary =
+        std::holds_alternative<bencode::dictionary>(result.value());
+    EXPECT_EQ(is_dictionary, true);
+
+    const auto actual = std::get<bencode::dictionary>(result.value());
+    auto expected = bencode::dictionary{};
+    expected.insert({"foo", 123});
+
+    EXPECT_EQ(actual, expected);
+}
+
+TEST(Parsing, NestedDictionary) {
+    const auto result = bencode::parse("d3:fooi123e3:bard3:bazi456eee");
+
+    const auto is_successful = result.has_value();
+    EXPECT_EQ(is_successful, true);
+
+    const auto is_dictionary =
+        std::holds_alternative<bencode::dictionary>(result.value());
+    EXPECT_EQ(is_dictionary, true);
+
+    const auto actual = std::get<bencode::dictionary>(result.value());
+    auto expected = bencode::dictionary{};
+    expected.insert({"foo", 123});
+
+    auto expected_nested = bencode::dictionary{};
+    expected_nested.insert({"baz", 456});
+
+    expected.insert({"bar", expected_nested});
+
+    EXPECT_EQ(actual, expected);
+}
