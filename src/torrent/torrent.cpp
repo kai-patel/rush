@@ -12,21 +12,31 @@
 #include "bencode.h"
 
 namespace torrent {
+std::optional<std::variant<single_file_info, multi_file_info>> process_info(
+    const bencode::dictionary& info) {
+    return {};
+}
+
 std::optional<torrent> torrent_from_dictionary(
     const bencode::dictionary& contents) {
     torrent new_torrent{};
-    if (!contents.contains("info")) {
-        return {};
+    if (contents.contains("info")) {
+        const auto element = contents.find("info");
+        if (std::holds_alternative<bencode::dictionary>(element->second)) {
+            const auto info =
+                process_info(std::get<bencode::dictionary>(element->second));
+            if (info.has_value()) {
+                new_torrent.info = info.value();
+            }
+        }
     }
 
-    // if (!contents.contains("announce")) {
-    //     return {};
-    // }
-    // const auto element = contents.find("announce");
-    // if (!std::holds_alternative<bencode::string>(element->second)) {
-    //     return {};
-    // }
-    // new_torrent.announce = std::get<bencode::string>(element->second);
+    if (contents.contains("announce")) {
+        const auto element = contents.find("announce");
+        if (std::holds_alternative<bencode::string>(element->second)) {
+            new_torrent.announce = std::get<bencode::string>(element->second);
+        }
+    }
 
     if (contents.contains("announce-list")) {
         const auto element = contents.find("announce-list");
@@ -73,8 +83,6 @@ std::optional<torrent> from_file(const std::filesystem::path& path) {
     if (!result.has_value()) {
         return {};
     }
-
-    fmt::println("{}", result.value());
 
     if (!std::holds_alternative<bencode::dictionary>(result.value())) {
         return {};

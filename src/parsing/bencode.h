@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fmt/base.h>
 #include <fmt/format.h>
+#include <fmt/base.h>
 
 #include <cstdint>
 #include <filesystem>
