@@ -11,5 +11,6 @@ target_link_libraries(
     torrent
     Boost::boost
     fmt::fmt
+    tomlplusplus::tomlplusplus
 )
 

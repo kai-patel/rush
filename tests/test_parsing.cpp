@@ -134,3 +134,40 @@ TEST(BencodeParsing, NestedDictionary) {
 
     EXPECT_EQ(actual, expected);
 }
+
+TEST(BencodeParsing, ListInNestedDictionary) {
+    const auto result = bencode::parse_literal("d3:food3:barl3:bari42eeee");
+
+    const auto is_successful = result.has_value();
+    EXPECT_EQ(is_successful, true);
+
+    const auto is_dictionary =
+        std::holds_alternative<bencode::dictionary>(result.value());
+    EXPECT_EQ(is_dictionary, true);
+
+    const auto actual = std::get<bencode::dictionary>(result.value());
+    auto expected_nested_list = bencode::list{};
+    expected_nested_list.push_back("bar");
+    expected_nested_list.push_back(42);
+
+    auto expected_nested = bencode::dictionary{};
+    expected_nested.insert({"bar", expected_nested_list});
+
+    auto expected = bencode::dictionary{};
+    expected.insert({"foo", expected_nested});
+
+    EXPECT_EQ(actual, expected);
+}
+
+TEST(BencodeParsing, Foo) {
+    const auto result = bencode::parse_literal(
+        "d13:creation "
+        "datei1458348895130e8:encoding5:UTF-84:infod5:filesli42eeee");
+
+    const auto is_successful = result.has_value();
+    EXPECT_EQ(is_successful, true);
+
+    const auto is_dictionary =
+        std::holds_alternative<bencode::dictionary>(result.value());
+    EXPECT_EQ(is_dictionary, true);
+}

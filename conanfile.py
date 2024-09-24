@@ -16,9 +16,6 @@ class rushRecipe(ConanFile):
 
     # Binary configuration
     settings = "os", "compiler", "build_type", "arch"
-    # default_options = {
-    #         "*:build_type": "Release",
-    # }
 
     # Sources are located in the same place as this recipe, copy them to the recipe
     exports_sources = "CMakeLists.txt", "src/*"
@@ -46,3 +43,4 @@ class rushRecipe(ConanFile):
         self.requires("foonathan-lexy/2022.12.1")
         self.requires("fmt/11.0.2")
         self.requires("gtest/1.15.0")
+        self.requires("tomlplusplus/3.4.0")

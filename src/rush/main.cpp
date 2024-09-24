@@ -6,7 +6,7 @@
 
 int main() {
     const auto result = torrent::from_file(
-        std::filesystem::path{"tests/resources/alice.torrent"});
+        std::filesystem::path{"tests/resources/bunny.torrent"});
     if (result.has_value()) {
         fmt::println("{}", result.value());
     }

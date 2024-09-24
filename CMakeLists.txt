@@ -10,6 +10,7 @@ set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,bugprone-*,misc-const-correctness
 find_package(Boost REQUIRED)
 find_package(lexy REQUIRED)
 find_package(fmt REQUIRED)
+find_package(tomlplusplus REQUIRED)
 
 add_subdirectory(src)
 add_subdirectory(tests)
