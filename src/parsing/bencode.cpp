@@ -4,8 +4,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <iostream>
 #include <lexy/action/match.hpp>
 #include <lexy/action/parse.hpp>
+#include <lexy/action/trace.hpp>
 #include <lexy/callback.hpp>
 #include <lexy/callback/adapter.hpp>
 #include <lexy/callback/composition.hpp>
@@ -18,6 +21,8 @@
 #include <lexy/dsl/context_counter.hpp>
 #include <lexy/dsl/eof.hpp>
 #include <lexy/dsl/if.hpp>
+#include <lexy/dsl/integer.hpp>
+#include <lexy/dsl/list.hpp>
 #include <lexy/dsl/parse_as.hpp>
 #include <lexy/dsl/scan.hpp>
 #include <lexy/dsl/sign.hpp>
@@ -107,25 +112,29 @@ std::optional<bencode::value> parse_literal(std::string_view input) {
 
 namespace grammar {
 struct integer {
-    static constexpr auto rule =
-        lexy::dsl::lit_c<'i'> >> lexy::dsl::minus_sign +
-                                     lexy::dsl::integer<std::int64_t> +
-                                     lexy::dsl::lit_c<'e'>;
-    static constexpr auto value =
-        lexy::as_integer<std::int64_t> | lexy::construct<bencode::integer>;
+    static constexpr auto rule = [] {
+        const auto open = lexy::dsl::lit_c<'i'>;
+        const auto close = lexy::dsl::lit_c<'e'>;
+        const auto number =
+            lexy::dsl::minus_sign + lexy::dsl::integer<std::int64_t>;
+
+        return (open >> number) + close;
+    }();
+
+    static constexpr auto value = lexy::as_integer<bencode::integer>;
 };
 
 struct byte_string
-    : lexy::scan_production<lexy::buffer_lexeme<lexy::byte_encoding>>,
-      lexy::token_production {
+    : lexy::scan_production<lexy::buffer_lexeme<lexy::byte_encoding>> {
     template <typename Context, typename Reader>
     static constexpr scan_result scan(
         lexy::rule_scanner<Context, Reader>& scanner) {
         lexy::scan_result<std::size_t> length;
-        scanner.parse(length, lexy::dsl::integer<std::size_t>);
-        scanner.parse(lexy::dsl::lit_c<':'>);
+        if (!scanner.branch(length, lexy::dsl::integer<std::size_t>)) {
+            return lexy::scan_failed;
+        }
 
-        if (!scanner) {
+        if (!scanner.branch(lexy::dsl::lit_c<':'>)) {
             return lexy::scan_failed;
         }
 
@@ -152,6 +161,9 @@ struct byte_string
         return scan_result::value_type(start, end);
     }
 
+    static constexpr auto rule =
+        (lexy::dsl::peek(lexy::dsl::integer<std::size_t>)) >> lexy::dsl::scan;
+
     static constexpr auto value =
         lexy::callback<bencode::string>([](scan_result::value_type buffer) {
             return std::string(reinterpret_cast<const char*>(buffer.data()),
@@ -159,22 +171,18 @@ struct byte_string
         });
 };
 
+struct dictionary;
+
 struct list {
     static constexpr auto rule = [] {
-        auto open = lexy::dsl::lit_c<'l'>;
-        auto bencode_integer = lexy::dsl::p<integer>;
-        auto bencode_string = lexy::dsl::p<byte_string>;
-        auto bencode_list = lexy::dsl::recurse_branch<list>;
-        auto close = lexy::dsl::lit_c<'e'>;
-        auto content_integer =
-            lexy::dsl::peek(bencode_integer) >> bencode_integer;
-        auto content_string = lexy::dsl::peek(bencode_string) >> bencode_string;
-        auto content_list = lexy::dsl::peek(open) >> bencode_list;
+        const auto open = lexy::dsl::lit_c<'l'>;
+        const auto close = lexy::dsl::lit_c<'e'>;
+        const auto elements =
+            lexy::dsl::list(lexy::dsl::p<integer> | lexy::dsl::p<byte_string> |
+                            lexy::dsl::recurse_branch<list> |
+                            lexy::dsl::recurse_branch<dictionary>);
 
-        auto content =
-            lexy::dsl::list(content_integer | content_string | content_list);
-
-        return open >> content + close;
+        return (open >> elements) + close;
     }();
 
     static constexpr auto value = lexy::as_list<bencode::list>;
@@ -182,23 +190,14 @@ struct list {
 
 struct dictionary {
     static constexpr auto rule = [] {
-        auto open = lexy::dsl::lit_c<'d'>;
-        auto close = lexy::dsl::lit_c<'e'>;
-        auto bencode_integer = lexy::dsl::p<integer>;
-        auto bencode_string = lexy::dsl::p<byte_string>;
-        auto bencode_list = lexy::dsl::p<list>;
-        auto bencode_dict = lexy::dsl::recurse_branch<dictionary>;
-        auto content_integer =
-            lexy::dsl::peek(bencode_integer) >> bencode_integer;
-        auto content_string = lexy::dsl::peek(bencode_string) >> bencode_string;
-        auto content_list = lexy::dsl::peek(bencode_list) >> bencode_list;
-        auto content_dict = lexy::dsl::peek(open) >> bencode_dict;
+        const auto open = lexy::dsl::lit_c<'d'>;
+        const auto close = lexy::dsl::lit_c<'e'>;
+        const auto elements = lexy::dsl::list(
+            lexy::dsl::p<byte_string> >>
+            (lexy::dsl::p<integer> | lexy::dsl::p<byte_string> |
+             lexy::dsl::p<list> | lexy::dsl::recurse_branch<dictionary>));
 
-        auto content =
-            lexy::dsl::list(content_string + (content_integer | content_string |
-                                              content_list | content_dict));
-
-        return open >> content + close;
+        return (open >> elements) + close;
     }();
 
     static constexpr auto value = lexy::as_collection<bencode::dictionary>;
@@ -206,11 +205,8 @@ struct dictionary {
 
 struct bencode_value {
     static constexpr auto rule = [] {
-        auto bencode_string = lexy::dsl::p<byte_string>;
-        auto content_string = lexy::dsl::peek(bencode_string) >> bencode_string;
-
-        return lexy::dsl::p<integer> | content_string | lexy::dsl::p<list> |
-               lexy::dsl::p<dictionary>;
+        return lexy::dsl::p<integer> | lexy::dsl::p<byte_string> |
+               lexy::dsl::p<list> | lexy::dsl::p<dictionary>;
     }();
 
     static constexpr auto value = lexy::construct<bencode::value>;
@@ -230,6 +226,8 @@ std::optional<bencode::value> parse(const std::filesystem::path& input) {
         return {};
     }
 
+    // lexy::trace<bencode::grammar::bencode_value>(stdout, file.buffer(),
+    //                                              {lexy::visualize_fancy});
     const auto result = lexy::parse<bencode::grammar::bencode_value>(
         file.buffer(), lexy_ext::report_error);
 
